@@ -546,6 +546,7 @@ class CometModel(ptl.LightningModule, metaclass=abc.ABCMeta):
         accelerator: str = "auto",
         num_workers: int = None,
         length_batching: bool = True,
+        precision: str = None,
     ) -> Prediction:
         """Method that receives a list of samples (dictionaries with translations,
         sources and/or references) and returns segment-level scores, system level score
@@ -567,6 +568,8 @@ class CometModel(ptl.LightningModule, metaclass=abc.ABCMeta):
                 data. Defaults to None
             length_batching (bool): If set to true, reduces padding by sorting samples
                 by sequence length. Defaults to True.
+            precision (str): Precision used for training. Defaults to '32-true'.
+                Options: {16,bf16}-{true,mixed}
 
         Return:
             Prediction object with `scores`, `system_score` and any metadata returned
@@ -629,6 +632,7 @@ class CometModel(ptl.LightningModule, metaclass=abc.ABCMeta):
             callbacks=callbacks,
             accelerator=accelerator if gpus > 0 else "cpu",
             strategy="auto" if gpus < 2 else "ddp",
+            precision=precision,
             enable_progress_bar=enable_progress_bar,
         )
         return_predictions = False if gpus > 1 else True

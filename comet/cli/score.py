@@ -117,6 +117,11 @@ def score_command() -> None:
         action="store_true",
         help="Print information about COMET cache.",
     )
+    parser.add_argument(
+        "--precision",
+        help="Float data type for lower precision inferrence. Example: 32-true (default when None), 16-true, 16-mixed, bt16-true, bf16-mixed. \
+            For more info, see precision arg in https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.trainer.trainer.Trainer.html"
+        )
     cfg = parser.parse_args()
 
     if cfg.quiet:
@@ -155,6 +160,20 @@ def score_command() -> None:
 
     model = load_from_checkpoint(model_path)
     model.eval()
+    if cfg.precision and '16' in cfg.precision:
+        #  This is first attempt for lower precision support:
+        #   we are assuming that CPU RAM is enough to load all the weights in full precision to CPU RAM
+        #   and here we are reducing t lowerprecision before copying to GPU/accelerator (but after loading to CPU RAM)
+        # For future improvements, if CPU memory is not sufficient or disk is too slow,
+        #   Try loading weights in lower precision directly from disk without exhausting CPU RAM.
+        #      (load weights layer by layer and convert them to lower precision)
+        #   Also, store/cache the converted low prec weights for faster loading in subsequent use.
+        logger.info(f"Concerting model to lower precision: {cfg.precision}")
+        import torch
+        if 'bf16' or 'bfloat16' in cfg.precision.lower():
+            model = model.to(dtype=torch.bfloat16)
+        else:
+            model = model.to(dtype=torch.float16)
 
     if model.requires_references() and (cfg.references is None):
         parser.error(
@@ -195,6 +214,7 @@ def score_command() -> None:
             gpus=cfg.gpus,
             progress_bar=(not cfg.quiet),
             accelerator="auto",
+            precision=cfg.precision,
             num_workers=cfg.num_workers,
             length_batching=(not cfg.disable_length_batching),
         )
@@ -203,7 +223,6 @@ def score_command() -> None:
             errors = outputs.metadata.error_spans
         else:
             errors = []
-        
         if len(cfg.translations) > 1:
             seg_scores = np.array_split(seg_scores, len(cfg.translations))
             sys_scores = [sum(split) / len(split) for split in seg_scores]

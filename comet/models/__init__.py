@@ -21,7 +21,7 @@ import torch
 import yaml
 from huggingface_hub import snapshot_download
 
-from .base import CometModel
+from .base import CometModel, logger
 from .multitask.unified_metric import UnifiedMetric
 from .multitask.xcomet_metric import XCOMETMetric
 from .ranking.ranking_metric import RankingMetric
