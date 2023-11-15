@@ -53,6 +53,7 @@ import logging
 import os
 
 import numpy as np
+import torch
 from jsonargparse import ArgumentParser
 from jsonargparse.typing import Path_fr
 from pytorch_lightning import seed_everything
@@ -168,11 +169,13 @@ def score_command() -> None:
         #   Try loading weights in lower precision directly from disk without exhausting CPU RAM.
         #      (load weights layer by layer and convert them to lower precision)
         #   Also, store/cache the converted low prec weights for faster loading in subsequent use.
-        logger.info(f"Concerting model to lower precision: {cfg.precision}")
-        import torch
+        torch.set_autocast_enabled(True)
+        logging.info(f"Lower precision mode: {cfg.precision}")
         if 'bf16' or 'bfloat16' in cfg.precision.lower():
+            torch.set_autocast_gpu_dtype(torch.bfloat16)
             model = model.to(dtype=torch.bfloat16)
         else:
+            torch.set_autocast_gpu_dtype(torch.float16)
             model = model.to(dtype=torch.float16)
 
     if model.requires_references() and (cfg.references is None):
